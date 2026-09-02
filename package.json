@@ -1,22 +1,81 @@
 {
-  "name": "meshly",
+  "name": "howfana",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "expo-router/entry",
   "dependencies": {
+    "@expo/vector-icons": "^15.0.2",
+    "@noble/ed25519": "^3.1.0",
+    "@noble/hashes": "^2.2.0",
+    "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.8",
+    "expo-audio": "~57.0.3",
+    "expo-clipboard": "~57.0.1",
+    "expo-constants": "~57.0.7",
+    "expo-crypto": "~57.0.1",
+    "expo-dev-client": "~57.0.9",
+    "expo-file-system": "~57.0.1",
+    "expo-font": "~57.0.1",
+    "expo-image-manipulator": "~57.0.6",
+    "expo-image-picker": "~57.0.6",
+    "expo-linking": "~57.0.4",
+    "expo-network": "~57.0.1",
+    "expo-router": "~57.0.8",
+    "expo-secure-store": "~57.0.1",
+    "expo-sqlite": "~57.0.1",
     "expo-status-bar": "~57.0.1",
+    "expo-video": "~57.0.2",
     "react": "19.2.3",
-    "react-native": "0.86.0"
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-ble-advertiser": "^0.0.17",
+    "react-native-ble-plx": "^3.5.1",
+    "react-native-paystack-webview": "^5.1.0",
+    "react-native-qrcode-svg": "^6.3.21",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-svg": "15.15.4",
+    "react-native-tcp-socket": "^6.4.2",
+    "react-native-udp": "^4.1.7",
+    "react-native-web": "^0.21.2",
+    "react-native-webrtc": "^124.0.8",
+    "react-native-webview": "13.16.1"
   },
   "devDependencies": {
+    "@react-native/jest-preset": "^0.86.2",
+    "@types/jest": "^29.5.14",
     "@types/react": "~19.2.2",
+    "jest": "^29.7.0",
+    "jest-expo": "^57.0.2",
+    "patch-package": "^8.0.1",
     "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
-    "web": "expo start --web"
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "prebuild": "expo prebuild",
+    "postinstall": "patch-package",
+    "test": "jest",
+    "eas:login": "npx eas-cli login",
+    "eas:init": "npx eas-cli init",
+    "eas:build:android": "npx eas-cli build --profile preview --platform android",
+    "eas:build:ios": "npx eas-cli build --profile preview --platform ios",
+    "eas:build:all": "npx eas-cli build --profile preview --platform all",
+    "eas:env:paystack": "npx eas-cli env:set preview --name EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY --visibility plaintext --type string",
+    "eas:preview:android": "bash scripts/eas-preview-android.sh"
+  },
+  "jest": {
+    "preset": "jest-expo",
+    "testMatch": [
+      "**/__tests__/**/*.test.ts"
+    ],
+    "moduleNameMapper": {
+      "^@/(.*)$": "<rootDir>/src/$1"
+    },
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|@noble/.*|react-native-webrtc|react-native-ble-plx|react-native-ble-advertiser|react-native-paystack-webview)"
+    ]
   },
   "private": true
 }
