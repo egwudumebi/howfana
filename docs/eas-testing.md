@@ -101,13 +101,40 @@ npm run eas:build:android
 
 The owner opens the link on their Android phone, downloads the APK, and installs (enable “Install unknown apps” if prompted).
 
-### iOS (optional, harder)
+### iOS (for iPhone testers)
 
-Internal iOS builds require an **Apple Developer** account ($99/year) and registered test devices. Only use if you already have that set up:
+You need an **[Apple Developer Program](https://developer.apple.com/programs/)** membership ($99/year).
 
-```bash
-npx eas-cli build --profile preview --platform ios
-```
+Choose **one** path:
+
+#### Option A — TestFlight (best for many testers)
+
+No UDID collection. Owner invites friends by email in TestFlight.
+
+1. **Credentials:** [expo.dev → Howfana → Credentials → iOS](https://expo.dev/accounts/egwudumebi/projects/howfana/credentials) — sign in with Apple ID and let Expo create certificates.
+2. **Build:** [Builds](https://expo.dev/accounts/egwudumebi/projects/howfana/builds) → **Build from GitHub** → **iOS** → profile **`production`** → environment **Production** → branch **`main`**.
+3. **Submit:** When the build finishes, use **Submit to App Store** (or enable submit in the build dialog). First submission creates the App Store Connect app record.
+4. **TestFlight:** [App Store Connect](https://appstoreconnect.apple.com) → your app → **TestFlight** → add **Internal** or **External** testers → they install via the TestFlight app.
+
+Paystack: add `EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY` to the **production** environment in [Environment variables](https://expo.dev/accounts/egwudumebi/projects/howfana/environment-variables) (same as preview).
+
+#### Option B — Internal install link (like Android APK)
+
+Works like your Android **Install** button, but **each iPhone must be registered first** (max 100 devices/year).
+
+1. **Register devices:** [expo.dev → Howfana → Devices](https://expo.dev/accounts/egwudumebi/projects/howfana/devices) → **Register devices** → send the link to each tester (they open it on their iPhone).
+2. **Credentials:** set up iOS credentials (same as Option A, step 1).
+3. **Build:** **Build from GitHub** → **iOS** → profile **`preview`** → environment **Preview** → branch **`main`**.
+4. **Install:** open the build → **Install** → share link/QR with registered testers only.
+
+Unregistered iPhones will **not** install ad hoc builds.
+
+#### iOS tester checklist
+
+1. Install from TestFlight **or** the EAS Install link (registered device).
+2. Accept Terms → create account → save recovery key.
+3. Allow **Local Network** and **Bluetooth** when prompted; enable **Nearby Discovery** in Settings.
+4. Same Wi‑Fi as friends → **People** → Connect → **Chat**.
 
 ## npm scripts (shortcut)
 

@@ -61,6 +61,7 @@
     "eas:init": "npx eas-cli init",
     "eas:build:android": "npx eas-cli build --profile preview --platform android",
     "eas:build:ios": "npx eas-cli build --profile preview --platform ios",
+    "eas:build:ios:testflight": "npx eas-cli build --profile production --platform ios",
     "eas:build:all": "npx eas-cli build --profile preview --platform all",
     "eas:env:paystack": "npx eas-cli env:set preview --name EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY --visibility plaintext --type string",
     "eas:preview:android": "bash scripts/eas-preview-android.sh"
