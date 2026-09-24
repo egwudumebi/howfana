@@ -213,9 +213,10 @@ export async function tryFinalizeMedia(
 export async function importLocalImage(
   db: SQLiteDatabase,
   sourceUri: string,
+  opts?: { maxWidth?: number },
 ): Promise<MediaObject> {
   const context = ImageManipulator.manipulate(sourceUri);
-  context.resize({ width: MediaConfig.maxWidth });
+  context.resize({ width: opts?.maxWidth ?? MediaConfig.maxWidth });
   const rendered = await context.renderAsync();
   const saved = await rendered.saveAsync({
     compress: MediaConfig.jpegQuality,
@@ -256,6 +257,14 @@ export async function importLocalImage(
     throw new Error('Failed to finalize local media');
   }
   return finalized;
+}
+
+/** Square avatar — smaller payload for profile sync. */
+export async function importAvatarImage(
+  db: SQLiteDatabase,
+  sourceUri: string,
+): Promise<MediaObject> {
+  return importLocalImage(db, sourceUri, { maxWidth: 512 });
 }
 
 /**
@@ -366,6 +375,24 @@ export async function listIncompleteMediaCidsFromPosts(
 
   const seen = new Set<string>();
   const out: Array<{ cid: string; mime: string; size: number }> = [];
+
+  const avatarRows = await db.getAllAsync<{
+    avatar_cid: string | null;
+  }>(
+    `SELECT avatar_cid FROM profiles
+     WHERE avatar_cid IS NOT NULL AND avatar_cid != ''`,
+  );
+  for (const row of avatarRows) {
+    if (!row.avatar_cid || seen.has(row.avatar_cid)) continue;
+    seen.add(row.avatar_cid);
+    const media = await getMediaObject(db, row.avatar_cid);
+    if (media?.status === 'complete') continue;
+    out.push({
+      cid: row.avatar_cid,
+      mime: media?.mime || 'image/jpeg',
+      size: media?.size ?? 0,
+    });
+  }
 
   for (const row of rows) {
     const items: Array<{ cid: string; mime: string; size: number }> = [];

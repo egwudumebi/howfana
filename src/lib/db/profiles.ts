@@ -1,5 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { getMediaObject } from '@/lib/media/store';
+
 export type ProfileAbout = {
   bio: string;
   education: string;
@@ -13,6 +15,7 @@ export type Profile = {
   publicKey: string;
   displayName: string;
   avatarUri: string | null;
+  avatarCid: string | null;
   updatedAt: number;
   about: ProfileAbout;
 };
@@ -51,8 +54,42 @@ export function parseAboutJson(raw: string | null | undefined): ProfileAbout {
 export type ProfileFields = {
   displayName?: string;
   avatarUri?: string | null;
+  avatarCid?: string | null;
   about?: Partial<ProfileAbout>;
 };
+
+/** Resolve a displayable avatar URI from local path and/or mesh CID. */
+export async function resolveAvatarUri(
+  db: SQLiteDatabase,
+  avatarUri: string | null | undefined,
+  avatarCid: string | null | undefined,
+): Promise<string | null> {
+  if (avatarUri?.includes('howfana-media')) {
+    return avatarUri;
+  }
+  if (avatarCid) {
+    const media = await getMediaObject(db, avatarCid);
+    if (media?.status === 'complete' && media.localUri) {
+      return media.localUri;
+    }
+    return null;
+  }
+  if (avatarUri && !avatarUri.startsWith('content://')) {
+    return avatarUri;
+  }
+  return null;
+}
+
+export async function applyAvatarMediaReady(
+  db: SQLiteDatabase,
+  cid: string,
+  localUri: string,
+): Promise<void> {
+  await db.runAsync(
+    'UPDATE profiles SET avatar_uri = ? WHERE avatar_cid = ?',
+    [localUri, cid],
+  );
+}
 
 export async function upsertLocalIdentity(
   db: SQLiteDatabase,
@@ -82,10 +119,11 @@ export async function getProfile(
     public_key: string;
     display_name: string;
     avatar_uri: string | null;
+    avatar_cid: string | null;
     updated_at: number;
     about_json: string | null;
   }>(
-    `SELECT public_key, display_name, avatar_uri, updated_at, about_json
+    `SELECT public_key, display_name, avatar_uri, avatar_cid, updated_at, about_json
      FROM profiles WHERE public_key = ?`,
     [publicKey],
   );
@@ -94,10 +132,17 @@ export async function getProfile(
     return null;
   }
 
+  const avatarUri = await resolveAvatarUri(
+    db,
+    row.avatar_uri,
+    row.avatar_cid,
+  );
+
   return {
     publicKey: row.public_key,
     displayName: row.display_name,
-    avatarUri: row.avatar_uri,
+    avatarUri,
+    avatarCid: row.avatar_cid,
     updatedAt: row.updated_at,
     about: parseAboutJson(row.about_json),
   };
@@ -116,6 +161,8 @@ export async function updateProfile(
   const displayName = fields.displayName ?? current.displayName;
   const avatarUri =
     fields.avatarUri === undefined ? current.avatarUri : fields.avatarUri;
+  const avatarCid =
+    fields.avatarCid === undefined ? current.avatarCid : fields.avatarCid;
   const about = fields.about
     ? normalizeAbout({ ...current.about, ...fields.about })
     : current.about;
@@ -123,15 +170,25 @@ export async function updateProfile(
 
   await db.runAsync(
     `UPDATE profiles
-     SET display_name = ?, avatar_uri = ?, updated_at = ?, about_json = ?
+     SET display_name = ?, avatar_uri = ?, avatar_cid = ?, updated_at = ?, about_json = ?
      WHERE public_key = ?`,
-    [displayName, avatarUri, updatedAt, JSON.stringify(about), publicKey],
+    [
+      displayName,
+      avatarUri,
+      avatarCid,
+      updatedAt,
+      JSON.stringify(about),
+      publicKey,
+    ],
   );
+
+  const resolvedAvatarUri = await resolveAvatarUri(db, avatarUri, avatarCid);
 
   return {
     publicKey,
     displayName,
-    avatarUri,
+    avatarUri: resolvedAvatarUri,
+    avatarCid,
     updatedAt,
     about,
   };
@@ -143,6 +200,7 @@ export async function upsertRemotePeer(
   fields: {
     displayName: string;
     avatarUri?: string | null;
+    avatarCid?: string | null;
     about?: ProfileAbout | null;
   },
 ): Promise<Profile> {
@@ -161,12 +219,13 @@ export async function upsertRemotePeer(
 
   if (!existing) {
     await db.runAsync(
-      `INSERT INTO profiles (public_key, display_name, avatar_uri, updated_at, about_json)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO profiles (public_key, display_name, avatar_uri, avatar_cid, updated_at, about_json)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         publicKey,
         fields.displayName,
         fields.avatarUri ?? null,
+        fields.avatarCid ?? null,
         now,
         JSON.stringify(about),
       ],
@@ -174,11 +233,12 @@ export async function upsertRemotePeer(
   } else {
     await db.runAsync(
       `UPDATE profiles
-       SET display_name = ?, avatar_uri = ?, updated_at = ?, about_json = ?
+       SET display_name = ?, avatar_uri = ?, avatar_cid = ?, updated_at = ?, about_json = ?
        WHERE public_key = ?`,
       [
         fields.displayName,
         fields.avatarUri === undefined ? existing.avatarUri : fields.avatarUri,
+        fields.avatarCid === undefined ? existing.avatarCid : fields.avatarCid,
         now,
         JSON.stringify(fields.about ? about : existing.about),
         publicKey,

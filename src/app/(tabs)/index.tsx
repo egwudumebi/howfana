@@ -22,6 +22,7 @@ import { Avatar } from '@/components/Avatar';
 import { EmptyState } from '@/components/EmptyState';
 import { MediaGallery } from '@/components/MediaGallery';
 import { HowfanaMark } from '@/components/HowfanaMark';
+import { NearbyErrorBanner } from '@/components/NearbyErrorBanner';
 import { ReelsRail } from '@/components/ReelsRail';
 import { SoftPressable } from '@/components/SoftPressable';
 import { StoryViewer } from '@/components/StoryViewer';
@@ -184,6 +185,8 @@ export default function HomeScreen() {
     setInvisibleMode,
     available,
     transportError,
+    clearTransportError,
+    retryNearbyPermissions,
     connectedKeys,
   } = usePeers();
   const {
@@ -496,7 +499,13 @@ export default function HomeScreen() {
           ) : null}
 
           {transportError ? (
-            <Text style={styles.errorText}>{transportError}</Text>
+            <NearbyErrorBanner
+              message={transportError}
+              onDismiss={clearTransportError}
+              onRetry={() => {
+                void retryNearbyPermissions();
+              }}
+            />
           ) : null}
         </View>
 
@@ -724,7 +733,13 @@ export default function HomeScreen() {
             <Text style={styles.composerTitle}>Add story</Text>
             <Text style={styles.storyHint}>Visible to nearby people for 24 hours</Text>
             {storyImageUri ? (
-              <Image source={{ uri: storyImageUri }} style={styles.storyPreview} />
+              <View style={styles.storyPreviewFrame}>
+                <Image
+                  source={{ uri: storyImageUri }}
+                  style={styles.storyPreview}
+                  resizeMode="contain"
+                />
+              </View>
             ) : null}
             <TextInput
               style={styles.composerInput}
@@ -973,11 +988,17 @@ function createStyles(colors: ThemeColors) {
       color: colors.muted,
       marginTop: -Space.sm,
     },
+    storyPreviewFrame: {
+      width: '100%',
+      aspectRatio: 9 / 16,
+      maxHeight: 320,
+      borderRadius: Radius.lg,
+      overflow: 'hidden',
+      backgroundColor: colors.surface,
+    },
     storyPreview: {
       width: '100%',
-      height: 180,
-      borderRadius: Radius.lg,
-      backgroundColor: colors.surface,
+      height: '100%',
     },
     photoLink: {
       color: colors.accent,

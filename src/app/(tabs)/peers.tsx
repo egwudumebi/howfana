@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useAppAlert } from '@/components/AppAlert';
+import { NearbyErrorBanner } from '@/components/NearbyErrorBanner';
 import { PeopleNearbyView } from '@/components/PeopleNearbyView';
 import { SoftPressable } from '@/components/SoftPressable';
 import { NetConfig } from '@/lib/constants';
@@ -21,7 +22,12 @@ export default function PeopleScreen() {
   const colors = useColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { alert } = useAppAlert();
-  const { connectManual, transportError } = usePeers();
+  const {
+    connectManual,
+    transportError,
+    clearTransportError,
+    retryNearbyPermissions,
+  } = usePeers();
   const [host, setHost] = useState('');
   const [connecting, setConnecting] = useState(false);
 
@@ -73,7 +79,13 @@ export default function PeopleScreen() {
           </SoftPressable>
         </View>
         {transportError ? (
-          <Text style={styles.error}>{transportError}</Text>
+          <NearbyErrorBanner
+            message={transportError}
+            onDismiss={clearTransportError}
+            onRetry={() => {
+              void retryNearbyPermissions();
+            }}
+          />
         ) : null}
       </View>
 

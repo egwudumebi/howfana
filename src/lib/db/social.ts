@@ -1,5 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
+import { resolveAvatarUri } from '@/lib/db/profiles';
 import {
   normalizeMediaLayout,
   type MediaLayout,
@@ -97,6 +98,7 @@ type PostRow = {
   visibility_boost: number | null;
   display_name: string | null;
   avatar_uri: string | null;
+  avatar_cid: string | null;
   media_cid: string | null;
   media_mime: string | null;
   media_size: number | null;
@@ -198,7 +200,7 @@ async function hydratePost(
   if (row.repost_of && depth < 1) {
     const origRow = await db.getFirstAsync<PostRow>(
       `SELECT p.id, p.author, p.body, p.created_at, p.edited_at, p.visibility_boost,
-              pr.display_name, pr.avatar_uri,
+              pr.display_name, pr.avatar_uri, pr.avatar_cid,
               p.media_cid, p.media_mime, p.media_size, p.media_json, p.media_layout,
               p.kind, p.duration_ms, p.repost_of
        FROM posts p
@@ -215,11 +217,17 @@ async function hydratePost(
     !row.repost_of &&
     (await hasReposted(db, viewerPublicKey, row.id));
 
+  const authorAvatarUri = await resolveAvatarUri(
+    db,
+    row.avatar_uri,
+    row.avatar_cid,
+  );
+
   return {
     id: row.id,
     author: row.author,
     authorName: row.display_name || shorten(row.author),
-    authorAvatarUri: row.avatar_uri,
+    authorAvatarUri,
     body: row.body,
     createdAt: row.created_at,
     editedAt: row.edited_at ?? null,
@@ -244,7 +252,7 @@ async function hydratePost(
 }
 
 const POST_SELECT = `SELECT p.id, p.author, p.body, p.created_at, p.edited_at, p.visibility_boost,
-            pr.display_name, pr.avatar_uri,
+            pr.display_name, pr.avatar_uri, pr.avatar_cid,
             p.media_cid, p.media_mime, p.media_size, p.media_json, p.media_layout,
             p.kind, p.duration_ms, p.repost_of
      FROM posts p

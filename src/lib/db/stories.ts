@@ -1,6 +1,7 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 
 import { StoryConfig } from '@/lib/constants';
+import { resolveAvatarUri } from '@/lib/db/profiles';
 
 export type StoryItem = {
   id: string;
@@ -37,6 +38,7 @@ type StoryRow = {
   media_size: number | null;
   display_name: string | null;
   avatar_uri: string | null;
+  avatar_cid: string | null;
 };
 
 async function hydrateStory(
@@ -71,11 +73,17 @@ async function hydrateStory(
     [row.id, viewerPublicKey],
   );
 
+  const authorAvatarUri = await resolveAvatarUri(
+    db,
+    row.avatar_uri,
+    row.avatar_cid,
+  );
+
   return {
     id: row.id,
     author: row.author,
     authorName: row.display_name?.trim() || 'Nearby',
-    authorAvatarUri: row.avatar_uri,
+    authorAvatarUri,
     body: row.body,
     createdAt: row.created_at,
     expiresAt: row.expires_at,
@@ -118,7 +126,7 @@ export async function listNearbyStoryRings(
   const rows = await db.getAllAsync<StoryRow>(
     `SELECT s.id, s.author, s.body, s.created_at, s.expires_at,
             s.media_cid, s.media_mime, s.media_size,
-            pr.display_name, pr.avatar_uri
+            pr.display_name, pr.avatar_uri, pr.avatar_cid
      FROM stories s
      LEFT JOIN profiles pr ON pr.public_key = s.author
      WHERE s.expires_at > ?

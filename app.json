@@ -52,6 +52,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "app.howfana.mobile",
+      "buildNumber": "1",
       "config": {
         "usesNonExemptEncryption": false
       },

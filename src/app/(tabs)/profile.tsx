@@ -300,7 +300,7 @@ export default function ProfileScreen() {
     try {
       await saveProfile({ displayName: trimmed, avatarUri });
       setEditing(false);
-      alert('Saved', 'Your profile was updated on this device.');
+      alert('Saved', 'Your profile was updated and will sync to nearby friends.');
     } catch (err) {
       alert('Save failed', err instanceof Error ? err.message : 'Unknown error');
     } finally {

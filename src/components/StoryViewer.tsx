@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar } from '@/components/Avatar';
 import type { StoryRing } from '@/lib/db/stories';
+import { storyTextStyle } from '@/lib/stories/textStyle';
 import { useColors } from '@/providers/ThemeProvider';
 import type { ThemeColors } from '@/theme/colors';
 import { Space } from '@/theme/spacing';
@@ -141,14 +142,18 @@ export function StoryViewer({
     <Modal visible={visible} animationType="fade" onRequestClose={close}>
       <View style={styles.root}>
         {story.mediaUri ? (
-          <Image
-            source={{ uri: story.mediaUri }}
-            style={styles.media}
-            resizeMode="cover"
-          />
+          <View style={styles.mediaFrame}>
+            <Image
+              source={{ uri: story.mediaUri }}
+              style={styles.media}
+              resizeMode="contain"
+            />
+          </View>
         ) : (
           <View style={styles.textBackdrop}>
-            <Text style={styles.textBody}>{story.body || '…'}</Text>
+            <Text style={[styles.textBody, storyTextStyle(story.body || '')]}>
+              {story.body || '…'}
+            </Text>
           </View>
         )}
 
@@ -208,8 +213,13 @@ function createStyles(colors: ThemeColors) {
       width: SCREEN_W,
       height: SCREEN_H,
     },
-    media: {
+    mediaFrame: {
       ...StyleSheet.absoluteFill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#000',
+    },
+    media: {
       width: SCREEN_W,
       height: SCREEN_H,
     },
@@ -222,10 +232,7 @@ function createStyles(colors: ThemeColors) {
     },
     textBody: {
       color: '#fff',
-      fontSize: 28,
-      fontWeight: '800',
       textAlign: 'center',
-      lineHeight: 36,
     },
     overlay: {
       position: 'absolute',

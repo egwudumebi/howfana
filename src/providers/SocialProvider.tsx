@@ -52,6 +52,7 @@ import type { Frame } from '@/lib/net/types';
 import { canEditPost } from '@/lib/premium/entitlements';
 import { normalizeMediaLayout, type MediaLayout } from '@/lib/social/mediaLayout';
 import { MAX_POST_MEDIA, type PostMediaItem } from '@/lib/social/mediaPayload';
+import { registerProfileSync } from '@/lib/profile/sync';
 import { shouldUnlike } from '@/lib/social/reactions';
 import { useIdentity } from '@/providers/IdentityProvider';
 import { usePeers } from '@/providers/PeerProvider';
@@ -185,6 +186,26 @@ export function SocialProvider({ children }: { children: ReactNode }) {
     },
     [db, broadcastFrame, floodEvent, refreshFeed, refreshReels, refreshStories],
   );
+
+  useEffect(() => {
+    registerProfileSync(async (event, mediaOffer) => {
+      await ingestEvent(db, event);
+      await broadcastFrame({ type: 'sync_batch', events: [event] });
+      if (mediaOffer) {
+        await broadcastFrame({ type: 'media_offer', ...mediaOffer });
+      }
+      await floodEvent(event);
+      await refreshFeed();
+      await refreshStories();
+    });
+    return () => registerProfileSync(null);
+  }, [
+    db,
+    broadcastFrame,
+    floodEvent,
+    refreshFeed,
+    refreshStories,
+  ]);
 
   const createPost = useCallback(
     async (

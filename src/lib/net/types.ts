@@ -45,6 +45,7 @@ export type AnnouncePacket = {
 export type HelloPayload = {
   displayName: string;
   avatarUri: string | null;
+  avatarCid?: string | null;
 };
 
 export type CallKind = 'audio' | 'video';

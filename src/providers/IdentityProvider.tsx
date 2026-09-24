@@ -19,6 +19,11 @@ import {
   type Profile,
   type ProfileFields,
 } from '@/lib/db/profiles';
+import { importAvatarImage } from '@/lib/media/store';
+import {
+  broadcastProfileUpdate,
+  type ProfileMediaOffer,
+} from '@/lib/profile/sync';
 import {
   createIdentity as createIdentityKeys,
   formatRecoveryKey,
@@ -95,7 +100,40 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
         throw new Error('Identity not ready');
       }
 
-      const updated = await updateProfile(db, publicKey, fields);
+      const current = await getProfile(db, publicKey);
+      if (!current) {
+        throw new Error('Profile not found');
+      }
+
+      let avatarUri = fields.avatarUri;
+      let avatarCid = fields.avatarCid;
+      let mediaOffer: ProfileMediaOffer | null = null;
+
+      if (fields.avatarUri !== undefined) {
+        if (fields.avatarUri === null) {
+          avatarCid = null;
+        } else if (
+          fields.avatarUri !== current.avatarUri ||
+          !fields.avatarUri.includes('howfana-media')
+        ) {
+          const imported = await importAvatarImage(db, fields.avatarUri);
+          avatarUri = imported.localUri;
+          avatarCid = imported.cid;
+          mediaOffer = {
+            cid: imported.cid,
+            size: imported.size,
+            mime: imported.mime,
+            chunkSize: imported.chunkSize,
+            chunkCount: imported.chunkCount,
+          };
+        }
+      }
+
+      const updated = await updateProfile(db, publicKey, {
+        ...fields,
+        avatarUri,
+        avatarCid,
+      });
       const event = await createSignedEvent(
         {
           type: EventType.ProfileUpdate,
@@ -103,7 +141,8 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
           timestamp: updated.updatedAt,
           payload: {
             displayName: updated.displayName,
-            avatarUri: updated.avatarUri,
+            avatarUri: updated.avatarCid ? null : updated.avatarUri,
+            avatarCid: updated.avatarCid,
             about: updated.about,
           },
         },
@@ -118,6 +157,7 @@ export function IdentityProvider({ children }: { children: ReactNode }) {
         }
       }
 
+      await broadcastProfileUpdate(event, mediaOffer);
       setProfile(updated);
     },
     [db, publicKey, secretKey],

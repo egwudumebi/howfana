@@ -128,6 +128,7 @@ export async function migrate(db: SQLiteDatabase): Promise<void> {
   await addColumnIfMissing(db, 'posts', 'edited_at', 'INTEGER');
   await addColumnIfMissing(db, 'posts', 'visibility_boost', 'INTEGER DEFAULT 0');
   await addColumnIfMissing(db, 'profiles', 'about_json', 'TEXT');
+  await addColumnIfMissing(db, 'profiles', 'avatar_cid', 'TEXT');
 
   await db.runAsync(
     `UPDATE posts SET kind = 'post' WHERE kind IS NULL OR kind = ''`,

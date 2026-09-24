@@ -28,6 +28,7 @@ import {
   removeDiscoveredPeer,
   upsertDiscoveredPeer,
 } from '@/lib/net/mergePeers';
+import { parseNearbyError } from '@/lib/net/nearbyErrors';
 import { requestNearbyPermissions } from '@/lib/net/permissions';
 import { createHelloEvent, verifyHelloEvent } from '@/lib/net/protocol';
 import type {
@@ -84,6 +85,8 @@ type PeerState = {
   available: boolean;
   bleAvailable: boolean;
   transportError: string | null;
+  clearTransportError: () => void;
+  retryNearbyPermissions: () => Promise<void>;
   peers: DiscoveredPeer[];
   /** Peers currently visible on LAN/BLE, newest first */
   nearbyPeers: DiscoveredPeer[];
@@ -299,7 +302,8 @@ export function PeerProvider({ children }: { children: ReactNode }) {
       const identity = await loadOrCreateIdentity();
       const event = await createHelloEvent(identity.publicKey, identity.secretKey, {
         displayName: profile.displayName || 'Howfana user',
-        avatarUri: profile.avatarUri,
+        avatarUri: profile.avatarCid ? null : profile.avatarUri,
+        avatarCid: profile.avatarCid,
       });
       const frame: Frame = asAck
         ? { type: 'hello_ack', event }
@@ -373,7 +377,8 @@ export function PeerProvider({ children }: { children: ReactNode }) {
 
         await upsertRemotePeer(db, remotePk, {
           displayName: payload.displayName,
-          avatarUri: payload.avatarUri,
+          avatarUri: payload.avatarCid ? null : payload.avatarUri,
+          avatarCid: payload.avatarCid ?? null,
         });
 
         const meta = connsRef.current.get(connectionId);
@@ -569,10 +574,14 @@ export function PeerProvider({ children }: { children: ReactNode }) {
     const shouldAnnounce = nearbyDiscoveryEnabled && !invisibleMode;
     const errors: string[] = [];
 
+    let blePermissionsOk = !isBleDiscoveryAvailable();
     if (isBleDiscoveryAvailable()) {
       const nearby = await requestNearbyPermissions();
       if (!nearby.ok && nearby.message) {
         errors.push(nearby.message);
+        blePermissionsOk = false;
+      } else {
+        blePermissionsOk = true;
       }
     }
 
@@ -585,7 +594,7 @@ export function PeerProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (isBleDiscoveryAvailable()) {
+    if (isBleDiscoveryAvailable() && blePermissionsOk) {
       try {
         await bleRef.current.start(local);
         bleRef.current.setAnnouncing(shouldAnnounce);
@@ -629,7 +638,7 @@ export function PeerProvider({ children }: { children: ReactNode }) {
       } else if (event.kind === 'peerLost') {
         setPeers((prev) => removeDiscoveredPeer(prev, event.publicKey));
       } else if (event.kind === 'error') {
-        setTransportError(event.error.message);
+        setTransportError(parseNearbyError(event.error.message).body);
       }
     });
   }, []);
@@ -688,6 +697,16 @@ export function PeerProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (discovering) applyAnnouncePolicy();
   }, [invisibleMode, discovering, applyAnnouncePolicy]);
+
+  const clearTransportError = useCallback(() => {
+    setTransportError(null);
+  }, []);
+
+  const retryNearbyPermissions = useCallback(async () => {
+    setTransportError(null);
+    if (!nearbyDiscoveryEnabled) return;
+    await startDiscovery().catch(() => undefined);
+  }, [nearbyDiscoveryEnabled, startDiscovery]);
 
   const setNearbyDiscoveryEnabled = useCallback(
     async (enabled: boolean) => {
@@ -804,6 +823,8 @@ export function PeerProvider({ children }: { children: ReactNode }) {
       available,
       bleAvailable,
       transportError,
+      clearTransportError,
+      retryNearbyPermissions,
       peers,
       nearbyPeers,
       nearbyCount,
@@ -834,6 +855,8 @@ export function PeerProvider({ children }: { children: ReactNode }) {
       available,
       bleAvailable,
       transportError,
+      clearTransportError,
+      retryNearbyPermissions,
       peers,
       nearbyPeers,
       nearbyCount,

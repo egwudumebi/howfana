@@ -11,6 +11,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 
 import { MediaConfig, NetConfig } from '@/lib/constants';
 import { chunkList } from '@/lib/db/sync';
+import { applyAvatarMediaReady } from '@/lib/db/profiles';
 import {
   ensurePendingMedia,
   getChunkBase64,
@@ -22,6 +23,7 @@ import {
 } from '@/lib/media/store';
 import { chunkCountForSize } from '@/lib/media/chunking';
 import type { Frame } from '@/lib/net/types';
+import { useIdentity } from '@/providers/IdentityProvider';
 import { usePeers } from '@/providers/PeerProvider';
 import { useSocial } from '@/providers/SocialProvider';
 
@@ -33,6 +35,7 @@ const MediaContext = createContext<MediaState | null>(null);
 
 export function MediaProvider({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
+  const { refresh: refreshIdentity } = useIdentity();
   const {
     connectedKeys,
     sendFrame,
@@ -40,7 +43,7 @@ export function MediaProvider({ children }: { children: ReactNode }) {
     setMediaFrameHandler,
     onPeerReady,
   } = usePeers();
-  const { lastSyncMessage, refreshFeed } = useSocial();
+  const { lastSyncMessage, refreshFeed, refreshStories } = useSocial();
   const requestingRef = useRef(new Set<string>());
 
   const offerCompleteMedia = useCallback(
@@ -85,8 +88,13 @@ export function MediaProvider({ children }: { children: ReactNode }) {
         const missing = await getMissingIndexes(db, cid);
         if (missing.length === 0) {
           if (media.chunkCount > 0) {
-            await tryFinalizeMedia(db, cid);
+            const finalized = await tryFinalizeMedia(db, cid);
+            if (finalized?.localUri) {
+              await applyAvatarMediaReady(db, cid, finalized.localUri);
+              await refreshIdentity();
+            }
             await refreshFeed();
+            await refreshStories();
           } else {
             // Unknown size — ask peers to offer metadata.
             await broadcastFrame({
@@ -198,11 +206,16 @@ export function MediaProvider({ children }: { children: ReactNode }) {
 
         const finalized = await tryFinalizeMedia(db, frame.cid);
         if (finalized?.status === 'complete') {
+          if (finalized.localUri) {
+            await applyAvatarMediaReady(db, frame.cid, finalized.localUri);
+            await refreshIdentity();
+          }
           await refreshFeed();
+          await refreshStories();
         }
       }
     },
-    [db, sendFrame, offerCompleteMedia, refreshFeed],
+    [db, sendFrame, offerCompleteMedia, refreshFeed, refreshStories, refreshIdentity],
   );
 
   useEffect(() => {

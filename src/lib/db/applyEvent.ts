@@ -40,6 +40,7 @@ async function applyProfileUpdate(db: SQLiteDatabase, event: MeshEvent): Promise
   const payload = event.payload as {
     displayName?: string;
     avatarUri?: string | null;
+    avatarCid?: string | null;
     about?: unknown;
   };
   await ensureIdentity(db, event.author);
@@ -51,13 +52,18 @@ async function applyProfileUpdate(db: SQLiteDatabase, event: MeshEvent): Promise
     payload.about !== undefined
       ? normalizeAbout(payload.about)
       : parseAboutJson(existing?.about_json);
+  const avatarCid =
+    typeof payload.avatarCid === 'string' && payload.avatarCid
+      ? payload.avatarCid
+      : null;
   await db.runAsync(
     `UPDATE profiles
-     SET display_name = ?, avatar_uri = ?, updated_at = ?, about_json = ?
+     SET display_name = ?, avatar_uri = ?, avatar_cid = ?, updated_at = ?, about_json = ?
      WHERE public_key = ?`,
     [
       typeof payload.displayName === 'string' ? payload.displayName : '',
-      payload.avatarUri ?? null,
+      avatarCid ? null : (payload.avatarUri ?? null),
+      avatarCid,
       event.timestamp,
       JSON.stringify(about),
       event.author,
